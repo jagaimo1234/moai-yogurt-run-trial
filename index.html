@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Moai Robo — Yogurt Run 体験版</title>
+<title>Moai Robo — Yogurt Run EX (Trial Edition)</title>
 <style>
 :root{--bg:#0b1020;--fg:#e6f0ff;--ui:#111827}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif}
@@ -14,9 +14,11 @@ canvas{width:100vw;height:100vh;image-rendering:pixelated;touch-action:none;back
 #ctrls{position:fixed;bottom:14px;left:0;right:0;display:flex;justify-content:space-between;padding:0 16px;gap:12px;z-index:2}
 .btn{flex:1;background:var(--ui);color:var(--fg);border:1px solid #374151;border-radius:14px;padding:10px 8px;text-align:center;font-weight:700;user-select:none}
 .btn:active{background:#374151;}
+/* ★スタート・オーバー画面の調整 */
 #start,#over{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#0b1020;z-index:4}
 #over{display:none}
-#title{font:22px/1.2 monospace;letter-spacing:.5px;opacity:.95;text-align:center;margin-bottom:4px}
+#title{font:24px/1.2 monospace;letter-spacing:.5px;opacity:.95;text-align:center;margin-bottom:4px;color:#ffcc00;} /* ★色を強調 */
+#edition{font:14px/1.2 monospace;color:#ff9900;margin-bottom:10px;} /* ★体験版表記 */
 .small{font:12px monospace;opacity:.8;text-align:center}
 #overTitle{font:20px monospace;margin-bottom:4px}
 #mute{position:fixed;top:8px;right:8px;z-index:3;
@@ -34,7 +36,7 @@ canvas{width:100vw;height:100vh;image-rendering:pixelated;touch-action:none;back
     S:<span id="sc">0</span>
     &nbsp;L:<span id="lf">3</span>
     &nbsp;ST:<span id="st">1</span>
-    &nbsp;T:<span id="tg">300</span>
+    &nbsp;T:<span id="tg">200</span>
   </div>
 
   <button id="mute" aria-pressed="false" title="Sound">🔇 音OFF</button>
@@ -47,11 +49,15 @@ canvas{width:100vw;height:100vh;image-rendering:pixelated;touch-action:none;back
 
   <div id="start">
     <div style="font-size:40px;margin-bottom:10px;">🗿</div>
-        <div id="title">MOAI ROBO — YOGURT RUN 体験版</div>
+    <div id="title">MOAI ROBO — YOGURT RUN</div>
+    <div id="edition">EX TRIAL EDITION</div>
     <div class="small">
-      Tap/Space/↑: Jump | ↓: Drop<br>F/SHOT: Attack (Final Stage)
+      Tap/Space/↑: Jump | ↓: Drop<br>F/SHOT: Attack (BOSS STAGE: UNLOCKED)
     </div>
-    <div class="btn" id="go" style="width:120px;margin-top:10px;">GAME START</div>
+    <div class="small" style="margin-top:10px; color:#ff9900;">
+      🚧 1st STAGE ONLY 🚧
+    </div>
+    <div class="btn" id="go" style="width:140px;margin-top:10px;background:#ef4444;">GAME START</div>
   </div>
 
   <div id="over">
@@ -69,15 +75,13 @@ canvas{width:100vw;height:100vh;image-rendering:pixelated;touch-action:none;back
 const G = { W:360, H:200, GROUND:200-24 };
 const MAX_LIVES = 5;
 
-// ★ STAGESをStage 1のみに制限し、Stage 1のターゲットをクリア扱いとする
+// ★ステージを1stステージのみに限定 (ターゲットスコアは300)
 const STAGES = [
-  { id:1, name:'PLAIN', target: 700, speed:1.8, obsRate:0.9, droneRate:0.25, spikeRate:0.3, slimeRate: 0.15 }
+  { id:1, name:'PLAIN', target: 300, speed:1.8, obsRate:0.9, droneRate:0.25, spikeRate:0.3, slimeRate: 0.15 }
 ];
-const DEMO_MODE = true; // 体験版フラグ
 
 // ====================================
-//  CANVAS SETUP
-// (変更なし)
+//  CANVAS SETUP (省略)
 // ====================================
 const cv  = document.getElementById('cv');
 const ctx = cv.getContext('2d');
@@ -96,8 +100,7 @@ fitCanvas();
 addEventListener('resize', fitCanvas);
 
 // ====================================
-//  IMAGE LOADING
-// (Slime画像、ボス画像は読み込みを維持しますが、ボスは出現しません)
+//  IMAGE LOADING (省略)
 // ====================================
 const moaiImage = new Image();
 moaiImage.src = 'moai_robo.png';
@@ -106,7 +109,7 @@ moaiImage.onload = () => { moaiImageLoaded = true; };
 moaiImage.onerror = () => { console.error("Error loading moai_robo.png. Check file path."); };
 
 const authorImage = new Image();
-authorImage.src = 'boss_author.png';
+authorImage.src = 'boss_author.png'; // ボス画像は未使用だが残す
 let authorImageLoaded = false;
 authorImage.onload = () => { authorImageLoaded = true; };
 authorImage.onerror = () => { console.error("Error loading boss_author.png. Check file path."); };
@@ -117,10 +120,15 @@ let slimeImageLoaded = false;
 slimeImage.onload = () => { slimeImageLoaded = true; };
 slimeImage.onerror = () => { console.error("Error loading enemy_slime.png. Check file path."); };
 
+const insectImage = new Image();
+insectImage.src = 'enemy_insect.png'; 
+let insectImageLoaded = false;
+insectImage.onload = () => { insectImageLoaded = true; };
+insectImage.onerror = () => { console.error("Error loading enemy_insect.png. Check file path."); };
+
 
 // ====================================
-//  AUDIO SYSTEM
-// (変更なし)
+//  AUDIO SYSTEM (省略)
 // ====================================
 let AC = null;
 let audioUnlocked = false;
@@ -179,7 +187,7 @@ muteBtn.addEventListener('click', ()=>{
 updateMuteUI();
 
 // ====================================
-//  GAME STATE
+//  GAME STATE (省略)
 // ====================================
 let state = 'START'; // START, PLAY, ENDING, OVER
 let score = 0;
@@ -196,7 +204,7 @@ const obstacles = [];
 let itemSpawn = 30;
 let obstacleSpawn = 60;
 
-// Boss (今回は使用しないが定義は維持)
+// Boss (未使用だが定義を残す)
 const BOSS_MAX_HP = 100;
 const BOSS_ATTACKS = ['BeerShot', 'Laser', 'Homing'];
 const boss = { 
@@ -204,8 +212,8 @@ const boss = { 
   attackIndex:0, attackTimer:180, 
   isCharging:false, beamWidth:0
 };
-const bossShots = [];
-const bullets   = [];
+const bossShots = []; 
+const bullets   = []; 
 
 // Ending (体験版用に修正)
 let endScrollY = 0;
@@ -217,6 +225,7 @@ const CREDITS = [
   "Special Thanks: Kanazawa Moataro"
 ];
 
+// HUD Elements (省略)
 const scEl = document.getElementById('sc');
 const lfEl = document.getElementById('lf');
 const stEl = document.getElementById('st');
@@ -225,7 +234,7 @@ const overEl = document.getElementById('over');
 const startEl = document.getElementById('start');
 
 // ====================================
-//  DRAWING FUNCTIONS (変更なし)
+//  DRAWING FUNCTIONS (省略)
 // ====================================
 function drawSky(){
   let skyHex = '#79bff0';
@@ -320,10 +329,10 @@ function drawMoai(){
   }
 }
 
-function drawBottle(it){
+function drawBottle(it){ // 省略
   const x=(it.x-9)|0, y=(it.y-26)|0;
   
-  const labelColor = it.score === 20 ? '#ec4899' : '#60a5fa';
+  const labelColor = it.score === 20 ? '#ec4899' : '#60a5fa'; 
   
   ctx.fillStyle = '#3b82f6';
   ctx.fillRect(x+6, y+4, 6, 2);
@@ -341,7 +350,7 @@ function drawBottle(it){
   ctx.strokeRect(x+4.5, y+8.5, 9, 13);
 }
 
-function drawBeer(s){
+function drawBeer(s){ // 省略
   if(s.type !== 'BeerShot') return;
   const x=s.x, y=s.y;
   ctx.save();
@@ -357,7 +366,7 @@ function drawBeer(s){
   ctx.restore();
 }
 
-function drawHomingShot(s){
+function drawHomingShot(s){ // 省略
   if(s.type !== 'Homing') return;
   const x=s.x, y=s.y;
   const color = (t%10 < 5) ? '#ff5555' : '#ff0000';
@@ -368,31 +377,34 @@ function drawHomingShot(s){
   ctx.fillRect(x-2, y-2, 4, 4);
 }
 
-function drawDrone(d){
-  const x=(d.x)|0, y=(d.y)|0;
-  const bob = Math.sin(t*0.5)*2;
-  
-  ctx.fillStyle=(d.type==='DiveDrone' ? '#1f2937' : '#475569');
-  ctx.fillRect(x-8, y-6+bob, 16, 12);
-  ctx.fillStyle = (t%20<10) ? '#ef4444' : '#7f1d1d';
-  ctx.fillRect(x-4, y-2+bob, 8, 4);
-  ctx.fillStyle='#cbd5e1';
-  if((t%4)<2) ctx.fillRect(x-12, y-10+bob, 24, 2);
-  else        ctx.fillRect(x-10, y-10+bob, 20, 2);
-  ctx.fillStyle='#1e293b';
-  ctx.fillRect(x-6, y+6+bob, 2, 4);
-  ctx.fillRect(x+4, y+6+bob, 2, 4);
+function drawDroneAsInsect(d){
+    if(!insectImageLoaded) return;
+    
+    const x=(d.x)|0, y=(d.y)|0;
+    const bob = Math.sin(t*0.5)*2;
+    const frameWidth = 24; 
+    const frameHeight = 24; 
+
+    const drawX = x - frameWidth/2; 
+    const drawY = y - frameHeight/2 + bob; 
+
+    // Insectの画像をDroneの描画位置に描画
+    ctx.drawImage(
+      insectImage, 
+      0, 0, insectImage.width, insectImage.height, 
+      drawX, drawY, frameWidth, frameHeight   
+    );
 }
 
 function drawSlime(d){
     if(!slimeImageLoaded) return;
     
     const x=(d.x)|0, y=(d.y)|0;
-    const frameWidth = 48;
-    const frameHeight = 48;
+    const frameWidth = 48; 
+    const frameHeight = 48; 
 
     const drawX = x - frameWidth/2;
-    const drawY = y - frameHeight;
+    const drawY = y - frameHeight; 
 
     ctx.drawImage(
       slimeImage,
@@ -431,11 +443,48 @@ function drawMine(d){
   ctx.fillRect(x-2, y-10+bob, 4, 20);
 }
 
-function drawBoss(){
-  // ボスは体験版では出現しない
-  if(DEMO_MODE) return; 
+function drawBoss(){ // 未使用だが残す
   if(!boss.active || !authorImageLoaded) return;
-  // ... (ボスの描画ロジックは省略)
+  const x = boss.x;
+  const y = boss.y + Math.sin(t*0.05)*4;
+
+  ctx.save();
+  ctx.translate(x,y);
+  
+  const frameWidth = 32; 
+  const frameHeight = 50; 
+  const drawX = -frameWidth/2;
+  const drawY = -frameHeight/2; 
+
+  ctx.drawImage(
+    authorImage, 
+    0, 0, authorImage.width, authorImage.height, 
+    drawX, drawY, frameWidth, frameHeight   
+  );
+
+  if(boss.isCharging){
+    ctx.fillStyle = (t%10<5) ? '#ff0000' : '#ffaa00';
+    ctx.beginPath();
+    ctx.arc(0, 0, 10 + Math.sin(t*0.5)*2, 0, 6.28);
+    ctx.fill();
+  }
+  
+  ctx.restore();
+
+  const hpRate = Math.max(0,boss.hp)/BOSS_MAX_HP;
+  const bw = 120;
+  ctx.fillStyle='#000'; ctx.fillRect(G.W/2-bw/2, 8, bw, 8);
+  ctx.fillStyle='#dc2626'; ctx.fillRect(G.W/2-bw/2, 8, bw*hpRate, 8);
+
+  if(boss.beamWidth > 0){
+    const beamY = boss.y; 
+    const beamW = boss.beamWidth;
+    ctx.fillStyle = `rgba(255, 0, 0, ${beamW/30})`;
+    ctx.fillRect(boss.x-5, beamY - beamW/2, -G.W, beamW);
+    
+    ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+    ctx.fillRect(boss.x-5, beamY - 1, -G.W, 2);
+  }
 }
 
 // ====================================
@@ -468,7 +517,7 @@ function loadStage(idx){
   stEl.textContent = currentStage.name;
   tgEl.textContent = isFinite(currentStage.target) ? currentStage.target : '----';
 
-  // ボスステージの処理を無効化
+  // 1stステージのみなので、ボス関連のフラグは常にOFF
   boss.active = false;
 }
 
@@ -499,49 +548,46 @@ function updatePlay(){
     player.onG = true;
   }
 
-  // ボスロジックは体験版では実行しない
-  const isBoss = false; 
-
-  if(!isBoss){
-    // アイテムスポーン
-    if(--itemSpawn <= 0){
-      const isStrawberry = Math.random() < 0.15;
-      const scoreValue = isStrawberry ? 20 : 10;
-      const isHeal = Math.random() < 0.05;
-      items.push({ x:G.W+20, y:G.GROUND-10-Math.random()*40, taken:false, heal:isHeal, score:scoreValue });
-      itemSpawn = (30/player.speed * currentStage.obsRate)|0 + Math.random()*20;
-    }
-    
-    // 敵スポーン
-    if(--obstacleSpawn <= 0){
-        const r = Math.random();
-        
-        // Slime出現判定 (Stage 1の比率 0.15)
-        if(r < currentStage.slimeRate){
-            obstacles.push({ x:G.W+20, y:G.GROUND-15, type:'Slime', hit:false }); 
-        } 
-        // Drone出現判定 (Stage 1の比率 0.25)
-        else if(r < currentStage.slimeRate + currentStage.droneRate){
-            const type = (Math.random() < 0.7) ? 'Drone' : 'DiveDrone';
-            const y = (type === 'Drone') ? G.GROUND-(Math.random()<0.6?20:50) : 0;
-            obstacles.push({ x:G.W+20, y:y, type:type, hit:false, vy:0 });
-        } 
-        // Spike出現判定 (Stage 1の比率 0.3)
-        else if(r < currentStage.slimeRate + currentStage.droneRate + currentStage.spikeRate){
-            obstacles.push({ x:G.W+20, y:G.GROUND+2, type:'Spike', hit:false });
-        } 
-        // Mine出現判定 (Stage 1では稀に: 0.1)
-        else if(r < currentStage.slimeRate + currentStage.droneRate + currentStage.spikeRate + 0.1) {
-            obstacles.push({ x:G.W+20, y:G.GROUND-50, type:'Mine', hit:false, startY:G.GROUND-50, amplitude: 30, phase: Math.random()*6.28 });
-        }
-        
-        obstacleSpawn = (60/player.speed * currentStage.obsRate)|0 + Math.random()*40;
-    }
-
-    if(t%600===0) player.speed = Math.min(player.speed+0.1, 4.0);
+  // ★アイテムスポーン
+  if(--itemSpawn <= 0){
+    const isStrawberry = Math.random() < 0.15;
+    const scoreValue = isStrawberry ? 20 : 10;
+    const isHeal = Math.random() < 0.05;
+    items.push({ x:G.W+20, y:G.GROUND-10-Math.random()*40, taken:false, heal:isHeal, score:scoreValue });
+    itemSpawn = (30/player.speed * currentStage.obsRate)|0 + Math.random()*20;
+  }
+  
+  // ★敵スポーン
+  if(--obstacleSpawn <= 0){
+      const r = Math.random();
+      
+      // Slime出現判定
+      if(r < currentStage.slimeRate){
+          obstacles.push({ x:G.W+20, y:G.GROUND-15, type:'Slime', hit:false }); 
+      } 
+      // Drone/Insect出現判定
+      else if(r < currentStage.slimeRate + currentStage.droneRate){
+          const type = (Math.random() < 0.7) ? 'Drone' : 'DiveDrone';
+          const y = (type === 'Drone') ? G.GROUND-(Math.random()<0.6?20:50) : 0;
+          obstacles.push({ x:G.W+20, y:y, type:type, hit:false, vy:0 });
+      } 
+      // Spike出現判定
+      else if(r < currentStage.slimeRate + currentStage.droneRate + currentStage.spikeRate){
+          obstacles.push({ x:G.W+20, y:G.GROUND+2, type:'Spike', hit:false });
+      } 
+      // Mine出現判定
+      else if(r < currentStage.slimeRate + currentStage.droneRate + currentStage.spikeRate + 0.1) {
+          obstacles.push({ x:G.W+20, y:G.GROUND-50, type:'Mine', hit:false, startY:G.GROUND-50, amplitude: 30, phase: Math.random()*6.28 });
+      }
+      
+      obstacleSpawn = (60/player.speed * currentStage.obsRate)|0 + Math.random()*40;
   }
 
-  // Move & Collide (アイテム)
+  if(t%600===0) player.speed = Math.min(player.speed+0.1, 4.0);
+
+  // ボスロジックは無効
+
+  // Move & Collide (省略)
   items.forEach(it => it.x -= player.speed);
   for(let i=items.length-1;i>=0;i--){
     const it=items[i];
@@ -554,11 +600,12 @@ function updatePlay(){
     if(it.x < -20 || it.taken) items.splice(i,1);
   }
 
-  // Obstacles (敵)
+  // Obstacles
   for(let i=obstacles.length-1;i>=0;i--){
     const d=obstacles[i];
     d.x -= player.speed*1.2;
     
+    // ドローンの挙動を再適用
     if(d.type === 'Drone'){
       if(d.y<G.GROUND) d.y += Math.sin(t*0.1)*0.5;
     } else if(d.type === 'DiveDrone'){
@@ -576,9 +623,15 @@ function updatePlay(){
       let collisionRadius = 12; 
       let collisionOffsetY = 16; 
       
+      // Slimeの当たり判定を調整
       if(d.type === 'Slime'){
           collisionRadius = 20; 
           collisionOffsetY = 24; 
+      }
+      // Drone/DiveDroneの当たり判定を調整
+      else if(d.type === 'Drone' || d.type === 'DiveDrone'){
+          collisionRadius = 14; 
+          collisionOffsetY = 12; 
       }
       
       if(d.type === 'Spike'){
@@ -597,52 +650,56 @@ function updatePlay(){
     if(d.x < -20 || d.hit) obstacles.splice(i,1);
   }
 
-  // Boss Shots (体験版では空)
-  bossShots.length = 0; 
-  
+  // Player Bullets (攻撃はボス戦でのみ機能するが残す)
+  for(let i=bullets.length-1;i>=0;i--){
+    bullets[i].x += 5;
+    if(bullets[i].x > G.W) bullets.splice(i,1);
+  }
 
-  // Player Bullets (ボスがいないので無効)
-  bullets.length = 0; 
-
-  // ★ Stage Clear Check (体験版クリア処理)
+  // ★ステージクリアチェック（1stステージのターゲットスコア達成時）
   if(score >= currentStage.target){
-    // Stage 1クリア後、次のステージに進まずENDINGへ
+    // ステージを移動する代わりに、エンディングへ移行
     state = 'ENDING';
     endScrollY = G.H;
     playFanfare(); 
     return;
   }
 
-  // Game Over
+  // Game Over (省略)
   if(lives <= 0){
     state = 'OVER';
     best = Math.max(best, score);
     document.getElementById('overTitle').textContent = 'GAME OVER';
     document.getElementById('scoreline').textContent = `SCORE: ${score} / BEST: ${best}`;
-    document.getElementById('retry').textContent = 'RETRY'; // リトライはゲームオーバー時は継続
     overEl.style.display = 'flex';
   }
 
-  // Update UI
+  // Update UI (省略)
   scEl.textContent = score;
   lfEl.textContent = lives;
 }
 
 function updateEnding(){
   endScrollY -= 0.6;
+
+  // ★エンディング用クレジットのスコアを更新
+  const scoreLineIndex = CREDITS.findIndex(line => line.startsWith("SCORE:"));
+  if (scoreLineIndex !== -1) {
+    CREDITS[scoreLineIndex] = `SCORE:   ${score}`;
+  }
+
   if(endScrollY < - (CREDITS.length * 20 + 100)){
     state = 'OVER';
     best = Math.max(best, score);
-    // ★ 体験版クリア時のメッセージをカスタマイズ
-    document.getElementById('overTitle').textContent = 'DEMO CLEAR!';
-    document.getElementById('scoreline').textContent = `製品版をお楽しみに！！ (SCORE: ${score})`;
-    document.getElementById('retry').textContent = 'プレイアゲイン';
+    document.getElementById('overTitle').textContent = 'TRIAL EDITION CLEAR!';
+    document.getElementById('scoreline').textContent = `FINAL SCORE: ${score}`;
+    document.getElementById('retry').textContent = 'RETRY';
     overEl.style.display = 'flex';
   }
 }
 
 // ====================================
-//  MAIN LOOP
+//  MAIN LOOP (省略)
 // ====================================
 function loop(){
   ctx.clearRect(0,0,G.W,G.H);
@@ -653,7 +710,7 @@ function loop(){
     items.forEach(drawBottle);
     
     obstacles.forEach(d=>{
-        if(d.type === 'Drone' || d.type === 'DiveDrone') drawDrone(d);
+        if(d.type === 'Drone' || d.type === 'DiveDrone') drawDroneAsInsect(d);
         else if(d.type === 'Slime') drawSlime(d);
         else if(d.type === 'Spike') drawSpike(d);
         else if(d.type === 'Mine') drawMine(d);
@@ -661,13 +718,9 @@ function loop(){
 
     drawMoai();
     
-    // 弾はボス戦のみなので描画しない (体験版のため)
-    // ctx.fillStyle='#e5f0ff';
-    // bullets.forEach(b=>{ ctx.beginPath(); ctx.arc(b.x,b.y,3,0,6.28); ctx.fill(); });
+    ctx.fillStyle='#e5f0ff';
+    bullets.forEach(b=>{ ctx.beginPath(); ctx.arc(b.x,b.y,3,0,6.28); ctx.fill(); });
     
-    // ボスの描画も行わない
-    // if(currentStage.boss && boss.active) { drawBoss(); ... }
-
     if(state === 'PLAY') updatePlay();
     if(state === 'ENDING') {
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
@@ -689,7 +742,7 @@ function loop(){
 }
 
 // ====================================
-//  INPUTS
+//  INPUTS (省略)
 // ====================================
 function jump(){
   if(state!=='PLAY') return;
@@ -704,9 +757,11 @@ function drop(){
   if(!player.onG) player.vy += 2.5;
 }
 function shoot(){
-  // 体験版ではショット機能を無効化
   if(state!=='PLAY') return;
-  // if(currentStage.boss && boss.active){...} 
+  if(currentStage.boss && boss.active){ // 1stステージでは無効
+    bullets.push({x:player.x+10, y:player.y-30});
+    beep(900,0.04,'square',0.1);
+  }
 }
 
 document.getElementById('go').onclick = startGame;
